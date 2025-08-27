@@ -1,35 +1,38 @@
 name: Terraform RG Deploy
 
 on:
-  workflow_dispatch:    # manual run
-  push:
-    branches: [ main, feature ]
+  workflow_dispatch:
 
 jobs:
   terraform:
-    runs-on: [self-hosted, Windows]   # ya sirf: self-hosted
+    runs-on: [self-hosted, Windows]
     defaults:
       run:
-        shell: pwsh
-        # working-directory: ./terraform   # (agar tf files subfolder me hain)
+        shell: powershell          # pwsh ki jagah powershell
 
     env:
-      ARM_CLIENT_ID:       ${{ secrets.ARM_CLIENT_ID }}
-      ARM_CLIENT_SECRET:   ${{ secrets.ARM_CLIENT_SECRET }}
-      ARM_TENANT_ID:       ${{ secrets.ARM_TENANT_ID }}
-      ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+      ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET:   ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.7.5   # optional
+          terraform_version: 1.7.5  # optional
+
+      - name: Verify tools
+        run: |
+          $PSVersionTable.PSVersion
+          where terraform
+          terraform -version
+          echo $env:PATH
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Terraform Plan
         run: terraform plan -out plan.tfplan
@@ -37,4 +40,3 @@ jobs:
       - name: Terraform Apply (manual runs only)
         if: github.event_name == 'workflow_dispatch'
         run: terraform apply -auto-approve plan.tfplan
-
