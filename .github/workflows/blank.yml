@@ -1,13 +1,17 @@
-name: Terraform RG Deploy
+name: Terraform Deploy (Self-Hosted)
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:   # Actions tab se Run workflow
 
 jobs:
-  terraform:
+  deploy:
     runs-on: [self-hosted, Windows]
-   
+    defaults:
+      run:
+        shell: powershell
+        working-directory: .          # agar tf files subfolder me hain to yahan path de (e.g. ./terraform)
 
+    # AZURE_* secrets ko Terraform ke ARM_* env vars me map kar rahe hain
     env:
       ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
       ARM_CLIENT_SECRET:   ${{ secrets.AZURE_CLIENT_SECRET }}
@@ -20,14 +24,7 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
-          terraform_version: 1.7.5  # optional
-
-      - name: Verify tools
-        run: |
-          $PSVersionTable.PSVersion
-          where terraform
-          terraform -version
-          echo $env:PATH
+          terraform_version: 1.7.5
 
       - name: Terraform Init
         run: terraform init -input=false
@@ -35,6 +32,5 @@ jobs:
       - name: Terraform Plan
         run: terraform plan -out plan.tfplan
 
-      - name: Terraform Apply (manual runs only)
-        if: github.event_name == 'workflow_dispatch'
+      - name: Terraform Apply
         run: terraform apply -auto-approve plan.tfplan
