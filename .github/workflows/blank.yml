@@ -1,0 +1,15 @@
+name: My First Workflow
+
+on:
+  workflow_dispatch:   # manual trigger
+  push:
+    branches:
+      - main
+      - feature
+
+jobs:
+  my_first_workflow:
+    runs-on: self-hosted   # yaha ab tera system use hoga
+    steps:
+      - name: Print it
+        run: echo hello from self-hosted runner
