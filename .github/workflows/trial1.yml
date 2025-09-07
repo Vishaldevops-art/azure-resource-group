@@ -1,4 +1,4 @@
-name: firstworkflow-debug
+name: terraform-rg-debug
 on:
   workflow_dispatch:
 
@@ -17,84 +17,70 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Runner info (debug)
+        shell: powershell
         run: |
           Write-Host "Runner: $env:RUNNER_NAME"
-          Write-Host "Working dir: $(pwd)"
-          Get-ChildItem -Force
+          Write-Host "PWD: $(Get-Location)"
+          Get-ChildItem -Force | Select-Object -First 200
 
-        shell: pwsh
-
-      - name: Show Terraform version (debug)
-        run: terraform version || echo "terraform not found"
-        shell: pwsh
-
-      - name: Show TF files (debug)
+      - name: Show main.tf (debug)
+        shell: powershell
         run: |
-          if (Test-Path ./main.tf) {
-            Write-Host "main.tf found:"; Get-Content ./main.tf -TotalCount 50
+          if (Test-Path .\main.tf) {
+            Write-Host "main.tf found:"
+            Get-Content .\main.tf -TotalCount 200
           } else {
-            Write-Host "main.tf NOT found in repo root; listing current dir:"; Get-ChildItem -Recurse | Select-Object -First 200
+            Write-Host "main.tf NOT found in repo root. Listing files recursively:"
+            Get-ChildItem -Recurse | Select-Object -First 200
           }
-        shell: pwsh
 
       - name: Setup Terraform (install)
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: '1.6.0'
 
-      - name: terraform init (no-color)
+      - name: terraform init (log)
+        shell: powershell
         run: terraform init -input=false -no-color 2>&1 | Tee-Object -FilePath init.log
-        shell: pwsh
 
       - name: show init log
+        shell: powershell
         run: Get-Content init.log -Raw
-        shell: pwsh
 
-      - name: terraform plan (save, no-color, detailed exit code)
-        # detailed-exitcode: 0=no changes, 1=error, 2=changes present
+      - name: terraform plan (save, log)
+        shell: powershell
         run: |
           terraform plan -out=tfplan -input=false -no-color 2>&1 | Tee-Object -FilePath plan.log
-          $LASTEXIT = $LASTEXITCODE
-          Write-Host "PLAN EXIT CODE: $LASTEXIT"
-          Exit $LASTEXIT
-        shell: pwsh
+          Write-Host "PLAN EXIT CODE: $LASTEXITCODE"
+          if ($LASTEXITCODE -eq 1) { throw "terraform plan failed with exit code 1" }
 
-      - name: show plan log (raw)
-        if: always()
-        run: Get-Content plan.log -Raw
-        shell: pwsh
-
-      - name: human-readable plan (if tfplan exists)
-        if: always()
+      - name: show plan (human-readable) if tfplan exists
+        shell: powershell
         run: |
           if (Test-Path .\tfplan) {
             terraform show -no-color tfplan 2>&1 | Tee-Object -FilePath show.log
             Get-Content show.log -Raw
           } else {
-            Write-Host "tfplan not found"
+            Write-Host "tfplan not found - plan step likely failed"
           }
-        shell: pwsh
 
-      - name: Upload tfplan artifact (for offline inspection)
-        if: always()
+      - name: Upload logs/artifact
         uses: actions/upload-artifact@v4
         with:
-          name: tfplan
+          name: terraform-logs
           path: |
-            tfplan
+            init.log
             plan.log
             show.log
-            init.log
+            tfplan
 
-      - name: terraform apply (only if changes)
-        if: success() && steps.terraform.outcome == 'success'
-        # the previous plan step exits non-zero for error (1) and for "changes" it returns 2,
-        # but the 'Exit $LASTEXIT' above will fail the job if exit!=0. So this step will run if the plan step was successful.
+      - name: terraform apply (apply saved plan)   # run only if tfplan present
+        if: always()
+        shell: powershell
         run: |
           if (Test-Path .\tfplan) {
             terraform apply -auto-approve tfplan 2>&1 | Tee-Object -FilePath apply.log
             Get-Content apply.log -Raw
           } else {
-            Write-Host "Skipping apply because tfplan is missing"
+            Write-Host "Skipping apply because tfplan is missing."
           }
-        shell: pwsh
