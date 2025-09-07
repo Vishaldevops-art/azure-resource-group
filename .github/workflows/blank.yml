@@ -9,4 +9,10 @@ jobs:
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: '1.6.0'
+      - name: terraform initialisation
+        run: terraform init
+      - name: terraform plan
+        run: terraform plan
+    
+    
           
