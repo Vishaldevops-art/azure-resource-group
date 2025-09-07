@@ -1,11 +1,15 @@
 name: terraform-rg
 on:
   workflow_dispatch:
+permissions:
+  id-token: write
+  contents: read|write
+  issues: read|write
 
 jobs:
   build:
     runs-on: self-hosted
-
+    
     
 
     steps:
