@@ -1,0 +1,12 @@
+name: firstworkflow
+on: 
+  workflow_dispatch  
+jobs: 
+  build:
+    runs-on: self-hosted
+    steps:
+      - name: terraform install  
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.6.0'
+          
