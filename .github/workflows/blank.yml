@@ -13,6 +13,9 @@ jobs:
         run: terraform init
       - name: terraform plan
         run: terraform plan
+      - name: show human-readable plan
+        # ye line plan ka summary console (GitHub Actions logs) me print karegi
+        run: terraform show -no-color tfplan
     
     
           
