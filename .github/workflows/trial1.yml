@@ -1,9 +1,9 @@
-name: terraform-rg-debug
+name: firstworkflow
 on:
   workflow_dispatch:
 
 jobs:
-  terraform:
+  build:
     runs-on: self-hosted
 
     env:
@@ -16,71 +16,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Runner info (debug)
-        shell: powershell
-        run: |
-          Write-Host "Runner: $env:RUNNER_NAME"
-          Write-Host "PWD: $(Get-Location)"
-          Get-ChildItem -Force | Select-Object -First 200
-
-      - name: Show main.tf (debug)
-        shell: powershell
-        run: |
-          if (Test-Path .\main.tf) {
-            Write-Host "main.tf found:"
-            Get-Content .\main.tf -TotalCount 200
-          } else {
-            Write-Host "main.tf NOT found in repo root. Listing files recursively:"
-            Get-ChildItem -Recurse | Select-Object -First 200
-          }
-
-      - name: Setup Terraform (install)
+      - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: '1.6.0'
 
-      - name: terraform init (log)
-        shell: powershell
-        run: terraform init -input=false -no-color 2>&1 | Tee-Object -FilePath init.log
+      - name: Terraform init
+        # plain call — avoids PowerShell piping issues
+        run: terraform init -input=false -no-color
 
-      - name: show init log
-        shell: powershell
-        run: Get-Content init.log -Raw
+      - name: Terraform plan (save)
+        run: terraform plan -out=tfplan -input=false -no-color
 
-      - name: terraform plan (save, log)
-        shell: powershell
-        run: |
-          terraform plan -out=tfplan -input=false -no-color 2>&1 | Tee-Object -FilePath plan.log
-          Write-Host "PLAN EXIT CODE: $LASTEXITCODE"
-          if ($LASTEXITCODE -eq 1) { throw "terraform plan failed with exit code 1" }
+      - name: Show human-readable plan
+        run: terraform show -no-color tfplan
 
-      - name: show plan (human-readable) if tfplan exists
-        shell: powershell
-        run: |
-          if (Test-Path .\tfplan) {
-            terraform show -no-color tfplan 2>&1 | Tee-Object -FilePath show.log
-            Get-Content show.log -Raw
-          } else {
-            Write-Host "tfplan not found - plan step likely failed"
-          }
-
-      - name: Upload logs/artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: terraform-logs
-          path: |
-            init.log
-            plan.log
-            show.log
-            tfplan
-
-      - name: terraform apply (apply saved plan)   # run only if tfplan present
-        if: always()
-        shell: powershell
-        run: |
-          if (Test-Path .\tfplan) {
-            terraform apply -auto-approve tfplan 2>&1 | Tee-Object -FilePath apply.log
-            Get-Content apply.log -Raw
-          } else {
-            Write-Host "Skipping apply because tfplan is missing."
-          }
+      - name: Terraform apply (apply saved plan)
+        run: terraform apply -auto-approve tfplan
