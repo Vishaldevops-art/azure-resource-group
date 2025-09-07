@@ -1,0 +1,43 @@
+name: firstworkflow
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: self-hosted
+
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: '1.6.0'
+
+      - name: terraform init
+        run: terraform init
+
+      - name: terraform plan (save)
+        run: terraform plan -out=tfplan -input=false
+
+      - name: show human-readable plan
+        run: terraform show -no-color tfplan
+
+      - name: terraform apply (apply saved plan)
+        run: terraform apply -auto-approve tfplan
+
+      # optional: verify with az CLI (only if az CLI installed and you login)
+      # - name: Azure CLI login (optional)
+      #   uses: azure/login@v1
+      #   with:
+      #     creds: ${{ secrets.AZURE_CREDENTIALS }}
+      #
+      # - name: verify resource group
+      #   run: az group show -n <your-rg-name> --query "{name:name, location:location}" -o table
